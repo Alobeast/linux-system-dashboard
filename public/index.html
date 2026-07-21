@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>System Dashboard</h1>
+
+    <div class="grid">
+      <div class="card">
+        <h2>CPU</h2>
+        <div class="value" id="cpu-value">--%</div>
+      </div>
+
+      <div class="card">
+        <h2>Memory</h2>
+        <div class="value" id="memory-value">--%</div>
+        <div class="detail" id="memory-detail">-- / -- MB</div>
+      </div>
+
+      <div class="card">
+        <h2>Uptime</h2>
+        <div class="value" id="uptime-value">--</div>
+      </div>
+    </div>
+
+    <div class="card process-card">
+      <h2>Top Processes (&gt; 50 MB)</h2>
+      <table class="process-table">
+        <tbody id="process-list"></tbody>
+      </table>
+    </div>
+
+    <div class="status" id="status">Connecting...</div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

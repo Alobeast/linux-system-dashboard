@@ -1,0 +1,107 @@
+const express = require('express');
+const os = require('os');
+const { execFile } = require('child_process');
+const util = require('util');
+
+const execFileAsync = util.promisify(execFile);
+
+const app = express();
+const PORT = 3000;
+const TOP_PROCESSES_MIN_MB = 50;
+const TOP_PROCESSES_MAX_COUNT = 15; // safety cap, rarely hit in practice
+
+app.use(express.static('public'));
+
+function getCpuSnapshot() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+
+  for (const cpu of cpus) {
+    for (const type in cpu.times) {
+      total += cpu.times[type];
+    }
+    idle += cpu.times.idle;
+  }
+
+  return { idle, total };
+}
+
+function getCpuUsagePercent(start, end) {
+  const idleDiff = end.idle - start.idle;
+  const totalDiff = end.total - start.total;
+  const usage = 1 - idleDiff / totalDiff;
+  return Math.round(usage * 1000) / 10;
+}
+
+function getMemoryInfo() {
+  const total = os.totalmem();
+  const free = os.freemem();
+  const used = total - free;
+
+  return {
+    totalMB: Math.round(total / 1024 / 1024),
+    usedMB: Math.round(used / 1024 / 1024),
+    freeMB: Math.round(free / 1024 / 1024),
+    usedPercent: Math.round((used / total) * 1000) / 10
+  };
+}
+
+// Parses `ps` output and returns the top memory-consuming processes
+async function getTopProcesses() {
+  const { stdout } = await execFileAsync('ps', [
+    '-eo', 'pid=,rss=,args=',
+    '--sort=-rss'
+  ]);
+
+  const lines = stdout.trim().split('\n');
+
+  const processes = lines.map((line) => {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^(\d+)\s+(\d+)\s+(.+)$/);
+    if (!match) return null;
+
+    const [, pid, rssKB, fullCommand] = match;
+    const executablePath = fullCommand.split(' ')[0];
+    const name = executablePath.split('/').pop();
+
+    return { pid, name, memoryMB: Math.round(parseInt(rssKB, 10) / 1024) };
+  }).filter(Boolean);
+
+  return processes
+  .filter((p) => p.memoryMB >= TOP_PROCESSES_MIN_MB)
+  .slice(0, TOP_PROCESSES_MAX_COUNT);
+}
+
+function getCpuUsageAsync() {
+  return new Promise((resolve) => {
+    const start = getCpuSnapshot();
+    setTimeout(() => {
+      const end = getCpuSnapshot();
+      resolve(getCpuUsagePercent(start, end));
+    }, 200);
+  });
+}
+
+app.get('/api/stats', async (req, res) => {
+  try {
+    const [cpuPercent, topProcesses] = await Promise.all([
+      getCpuUsageAsync(),
+      getTopProcesses()
+    ]);
+
+    res.json({
+      cpuPercent,
+      memory: getMemoryInfo(),
+      uptimeSeconds: Math.round(os.uptime()),
+      topProcesses
+    });
+  } catch (err) {
+    console.error('Error collecting stats:', err);
+    res.status(500).json({ error: 'Failed to collect stats' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
