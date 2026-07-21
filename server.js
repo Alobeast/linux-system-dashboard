@@ -83,16 +83,37 @@ function getCpuUsageAsync() {
   });
 }
 
+// Parses `df` output for the root filesystem
+async function getStorageInfo() {
+  const { stdout } = await execFileAsync('df', ['-kP', '/']);
+  const line = stdout.trim().split('\n')[1]; // skip header line
+  const parts = line.trim().split(/\s+/);
+
+  const totalKB = parseInt(parts[1], 10);
+  const usedKB = parseInt(parts[2], 10);
+  const freeKB = parseInt(parts[3], 10);
+
+  return {
+    mountPoint: '/',
+    totalMB: Math.round(totalKB / 1024),
+    usedMB: Math.round(usedKB / 1024),
+    freeMB: Math.round(freeKB / 1024),
+    usedPercent: Math.round((usedKB / totalKB) * 1000) / 10
+  };
+}
+
 app.get('/api/stats', async (req, res) => {
   try {
-    const [cpuPercent, topProcesses] = await Promise.all([
+    const [cpuPercent, topProcesses, storage] = await Promise.all([
       getCpuUsageAsync(),
-      getTopProcesses()
+      getTopProcesses(),
+      getStorageInfo()
     ]);
 
     res.json({
       cpuPercent,
       memory: getMemoryInfo(),
+      storage,
       uptimeSeconds: Math.round(os.uptime()),
       topProcesses
     });

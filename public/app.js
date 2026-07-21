@@ -6,6 +6,8 @@ const memoryDetail = document.getElementById('memory-detail');
 const uptimeValue = document.getElementById('uptime-value');
 const statusEl = document.getElementById('status');
 const processList = document.getElementById('process-list');
+const storageValue = document.getElementById('storage-value');
+const storageDetail = document.getElementById('storage-detail');
 
 function formatUptime(seconds) {
   const days = Math.floor(seconds / 86400);
@@ -19,8 +21,16 @@ function formatUptime(seconds) {
 
 function updateDashboard(stats) {
   cpuValue.textContent = `${stats.cpuPercent}%`;
+  applyStatusClass(cpuValue, stats.cpuPercent, 70, 90);
+
   memoryValue.textContent = `${stats.memory.usedPercent}%`;
   memoryDetail.textContent = `${stats.memory.usedMB} / ${stats.memory.totalMB} MB`;
+  applyStatusClass(memoryValue, stats.memory.usedPercent, 75, 90);
+
+  storageValue.textContent = `${stats.storage.usedPercent}%`;
+  storageDetail.textContent = `${stats.storage.usedMB} / ${stats.storage.totalMB} MB`;
+  applyStatusClass(storageValue, stats.storage.usedPercent, 80, 95);
+
   uptimeValue.textContent = formatUptime(stats.uptimeSeconds);
   renderProcesses(stats.topProcesses);
 
@@ -61,6 +71,19 @@ async function fetchStats() {
     updateDashboard(stats);
   } catch (err) {
     showError();
+  }
+}
+
+// Applies a color class to an element based on value thresholds
+function applyStatusClass(element, value, warnAt, badAt) {
+  element.classList.remove('status-good', 'status-warn', 'status-bad');
+
+  if (value >= badAt) {
+    element.classList.add('status-bad');
+  } else if (value >= warnAt) {
+    element.classList.add('status-warn');
+  } else {
+    element.classList.add('status-good');
   }
 }
 
