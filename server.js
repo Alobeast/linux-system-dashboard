@@ -102,16 +102,47 @@ async function getStorageInfo() {
   };
 }
 
+// Reads CPU temperature and fan speeds via `sensors -j` (lm-sensors)
+async function getThermalInfo() {
+  try {
+    const { stdout } = await execFileAsync('sensors', ['-j']);
+    const data = JSON.parse(stdout);
+
+    const cpuTemp = data['coretemp-isa-0000']?.['Package id 0']?.temp1_input ?? null;
+
+    const fans = data['applesmc-isa-0300'];
+    const fanSpeeds = fans
+      ? Object.entries(fans)
+          .filter(([key]) => key.trim().toLowerCase().includes('side'))
+          .map(([label, values]) => ({
+            label: label.trim(),
+            rpm: Math.round(Object.values(values)[0])
+          }))
+      : [];
+
+    return {
+      cpuTemp: cpuTemp !== null ? Math.round(cpuTemp * 10) / 10 : null,
+      fanSpeeds
+    };
+  } catch (err) {
+    console.error('Failed to read sensors:', err);
+    return { cpuTemp: null, fanSpeeds: [] };
+  }
+}
+
 app.get('/api/stats', async (req, res) => {
   try {
-    const [cpuPercent, topProcesses, storage] = await Promise.all([
+    const [cpuPercent, topProcesses, storage, thermal] = await Promise.all([
       getCpuUsageAsync(),
       getTopProcesses(),
-      getStorageInfo()
+      getStorageInfo(),
+      getThermalInfo()
     ]);
 
     res.json({
       cpuPercent,
+      cpuTemp: thermal.cpuTemp,
+      fanSpeeds: thermal.fanSpeeds,
       memory: getMemoryInfo(),
       storage,
       uptimeSeconds: Math.round(os.uptime()),

@@ -8,6 +8,8 @@ const statusEl = document.getElementById('status');
 const processList = document.getElementById('process-list');
 const storageValue = document.getElementById('storage-value');
 const storageDetail = document.getElementById('storage-detail');
+const tempValue = document.getElementById('temp-value');
+const fanDetail = document.getElementById('fan-detail');
 
 function formatUptime(seconds) {
   const days = Math.floor(seconds / 86400);
@@ -36,6 +38,21 @@ function updateDashboard(stats) {
 
   statusEl.textContent = '';
   statusEl.classList.remove('error');
+
+  if (stats.cpuTemp !== null) {
+    tempValue.textContent = `${stats.cpuTemp}°C`;
+    applyStatusClass(tempValue, stats.cpuTemp, 70, 85);
+  } else {
+    tempValue.textContent = 'N/A';
+  }
+
+  if (stats.fanSpeeds && stats.fanSpeeds.length > 0) {
+    fanDetail.textContent = stats.fanSpeeds
+      .map((fan) => `${fan.rpm} RPM`)
+      .join(' / ');
+  } else {
+    fanDetail.textContent = 'No fan data';
+  }
 }
 
 function renderProcesses(processes) {
