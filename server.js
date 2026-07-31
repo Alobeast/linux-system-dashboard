@@ -9,6 +9,7 @@ const app = express();
 const PORT = 3000;
 const TOP_PROCESSES_MIN_MB = 50;
 const TOP_PROCESSES_MAX_COUNT = 15; // safety cap, rarely hit in practice
+const DOCKER_STATS_REFRESH_MS = 30000; // `docker stats` is slow, so it's refreshed on its own timer instead of per-request
 
 app.use(express.static('public'));
 
@@ -198,14 +199,21 @@ async function getDockerContainers() {
   }
 }
 
+// `docker stats` takes ~1-2s per call, so it's refreshed on its own slower
+// timer in the background instead of being awaited on every /api/stats request
+let dockerContainersCache = [];
+
+async function refreshDockerContainersCache() {
+  dockerContainersCache = await getDockerContainers();
+}
+
 app.get('/api/stats', async (req, res) => {
   try {
-    const [cpuPercent, topProcesses, storage, thermal, dockerContainers] = await Promise.all([
+    const [cpuPercent, topProcesses, storage, thermal] = await Promise.all([
       getCpuUsageAsync(),
       getTopProcesses(),
       getStorageInfo(),
-      getThermalInfo(),
-      getDockerContainers()
+      getThermalInfo()
     ]);
 
     res.json({
@@ -216,13 +224,16 @@ app.get('/api/stats', async (req, res) => {
       storage,
       uptimeSeconds: Math.round(os.uptime()),
       topProcesses,
-      dockerContainers
+      dockerContainers: dockerContainersCache
     });
   } catch (err) {
     console.error('Error collecting stats:', err);
     res.status(500).json({ error: 'Failed to collect stats' });
   }
 });
+
+refreshDockerContainersCache();
+setInterval(refreshDockerContainersCache, DOCKER_STATS_REFRESH_MS);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

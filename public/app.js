@@ -104,6 +104,8 @@ async function fetchStats() {
     updateDashboard(stats);
   } catch (err) {
     showError();
+  } finally {
+    setTimeout(fetchStats, POLL_INTERVAL_MS);
   }
 }
 
@@ -121,4 +123,3 @@ function applyStatusClass(element, value, warnAt, badAt) {
 }
 
 fetchStats();
-setInterval(fetchStats, POLL_INTERVAL_MS);
