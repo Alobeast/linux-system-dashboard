@@ -47,11 +47,11 @@ function getMemoryInfo() {
   };
 }
 
-// Parses `ps` output and returns the top memory-consuming processes
+// Parses `ps` output and returns the top memory-consuming processes,
+// aggregated by executable name (e.g. multiple "apache2" workers become one row)
 async function getTopProcesses() {
   const { stdout } = await execFileAsync('ps', [
-    '-eo', 'pid=,rss=,args=',
-    '--sort=-rss'
+    '-eo', 'pid=,rss=,args='
   ]);
 
   const lines = stdout.trim().split('\n');
@@ -68,9 +68,21 @@ async function getTopProcesses() {
     return { pid, name, memoryMB: Math.round(parseInt(rssKB, 10) / 1024) };
   }).filter(Boolean);
 
-  return processes
-  .filter((p) => p.memoryMB >= TOP_PROCESSES_MIN_MB)
-  .slice(0, TOP_PROCESSES_MAX_COUNT);
+  const grouped = new Map();
+  for (const p of processes) {
+    const existing = grouped.get(p.name);
+    if (existing) {
+      existing.memoryMB += p.memoryMB;
+      existing.count += 1;
+    } else {
+      grouped.set(p.name, { pid: p.pid, name: p.name, memoryMB: p.memoryMB, count: 1 });
+    }
+  }
+
+  return Array.from(grouped.values())
+    .filter((p) => p.memoryMB >= TOP_PROCESSES_MIN_MB)
+    .sort((a, b) => b.memoryMB - a.memoryMB)
+    .slice(0, TOP_PROCESSES_MAX_COUNT);
 }
 
 function getCpuUsageAsync() {

@@ -63,7 +63,7 @@ function renderProcesses(processes) {
 
   processList.innerHTML = processes.map((p) => `
     <tr>
-      <td class="process-name">${escapeHtml(p.name)} <span class="process-pid">#${p.pid}</span></td>
+      <td class="process-name">${escapeHtml(p.name)}${p.count > 1 ? ` <span class="process-pid">×${p.count}</span>` : ''}</td>
       <td class="process-mem">${p.memoryMB} MB</td>
     </tr>
   `).join('');
