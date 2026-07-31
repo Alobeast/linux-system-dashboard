@@ -80,7 +80,6 @@ function renderDockerContainers(containers) {
   dockerList.innerHTML = containers.map((c) => `
     <tr>
       <td class="process-name">${escapeHtml(c.name)}</td>
-      <td class="docker-cpu">${c.cpuPercent}%</td>
       <td class="process-mem">${c.memoryMB} MB</td>
     </tr>
   `).join('');

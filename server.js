@@ -173,10 +173,6 @@ function parseMemUsage(memUsage) {
   return usedMB !== null ? Math.round(usedMB * 10) / 10 : null;
 }
 
-function parsePercent(value) {
-  return parseFloat(value.replace('%', ''));
-}
-
 // Reads live container stats via `docker stats`. Returns an empty array if
 // Docker is unavailable or no containers are running, so this never breaks the route.
 async function getDockerContainers() {
@@ -193,9 +189,7 @@ async function getDockerContainers() {
         const container = JSON.parse(line);
         return {
           name: container.Name,
-          cpuPercent: parsePercent(container.CPUPerc),
-          memoryMB: parseMemUsage(container.MemUsage),
-          memPercent: parsePercent(container.MemPerc)
+          memoryMB: parseMemUsage(container.MemUsage)
         };
       });
   } catch (err) {
