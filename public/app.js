@@ -6,6 +6,7 @@ const memoryDetail = document.getElementById('memory-detail');
 const uptimeValue = document.getElementById('uptime-value');
 const statusEl = document.getElementById('status');
 const processList = document.getElementById('process-list');
+const dockerList = document.getElementById('docker-list');
 const storageValue = document.getElementById('storage-value');
 const storageDetail = document.getElementById('storage-detail');
 const tempValue = document.getElementById('temp-value');
@@ -35,6 +36,7 @@ function updateDashboard(stats) {
 
   uptimeValue.textContent = formatUptime(stats.uptimeSeconds);
   renderProcesses(stats.topProcesses);
+  renderDockerContainers(stats.dockerContainers);
 
   statusEl.textContent = '';
   statusEl.classList.remove('error');
@@ -65,6 +67,21 @@ function renderProcesses(processes) {
     <tr>
       <td class="process-name">${escapeHtml(p.name)}${p.count > 1 ? ` <span class="process-pid">×${p.count}</span>` : ''}</td>
       <td class="process-mem">${p.memoryMB} MB</td>
+    </tr>
+  `).join('');
+}
+
+function renderDockerContainers(containers) {
+  if (!containers || containers.length === 0) {
+    dockerList.innerHTML = '<tr><td class="process-empty">No containers running</td></tr>';
+    return;
+  }
+
+  dockerList.innerHTML = containers.map((c) => `
+    <tr>
+      <td class="process-name">${escapeHtml(c.name)}</td>
+      <td class="docker-cpu">${c.cpuPercent}%</td>
+      <td class="process-mem">${c.memoryMB} MB</td>
     </tr>
   `).join('');
 }

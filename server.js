@@ -142,13 +142,76 @@ async function getThermalInfo() {
   }
 }
 
+// Converts a docker memory value like "618.4MiB" or "7.629GiB" into MB
+function parseMemValueToMB(value) {
+  const match = value.trim().match(/^([\d.]+)\s*([A-Za-z]+)$/);
+  if (!match) return null;
+
+  const [, amount, unit] = match;
+  const unitToMB = {
+    b: 1 / (1024 * 1024),
+    kib: 1 / 1024,
+    kb: 1 / 1024,
+    mib: 1,
+    mb: 1,
+    gib: 1024,
+    gb: 1024,
+    tib: 1024 * 1024,
+    tb: 1024 * 1024
+  };
+
+  const multiplier = unitToMB[unit.toLowerCase()];
+  if (multiplier === undefined) return null;
+
+  return parseFloat(amount) * multiplier;
+}
+
+// Parses "618.4MiB / 7.629GiB" and returns the used amount in MB
+function parseMemUsage(memUsage) {
+  const usedStr = memUsage.split('/')[0];
+  const usedMB = parseMemValueToMB(usedStr);
+  return usedMB !== null ? Math.round(usedMB * 10) / 10 : null;
+}
+
+function parsePercent(value) {
+  return parseFloat(value.replace('%', ''));
+}
+
+// Reads live container stats via `docker stats`. Returns an empty array if
+// Docker is unavailable or no containers are running, so this never breaks the route.
+async function getDockerContainers() {
+  try {
+    const { stdout } = await execFileAsync('docker', [
+      'stats', '--no-stream', '--format', '{{json .}}'
+    ]);
+
+    return stdout
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const container = JSON.parse(line);
+        return {
+          name: container.Name,
+          cpuPercent: parsePercent(container.CPUPerc),
+          memoryMB: parseMemUsage(container.MemUsage),
+          memPercent: parsePercent(container.MemPerc)
+        };
+      });
+  } catch (err) {
+    console.error('Failed to read docker stats:', err);
+    return [];
+  }
+}
+
 app.get('/api/stats', async (req, res) => {
   try {
-    const [cpuPercent, topProcesses, storage, thermal] = await Promise.all([
+    const [cpuPercent, topProcesses, storage, thermal, dockerContainers] = await Promise.all([
       getCpuUsageAsync(),
       getTopProcesses(),
       getStorageInfo(),
-      getThermalInfo()
+      getThermalInfo(),
+      getDockerContainers()
     ]);
 
     res.json({
@@ -158,7 +221,8 @@ app.get('/api/stats', async (req, res) => {
       memory: getMemoryInfo(),
       storage,
       uptimeSeconds: Math.round(os.uptime()),
-      topProcesses
+      topProcesses,
+      dockerContainers
     });
   } catch (err) {
     console.error('Error collecting stats:', err);
